@@ -191,6 +191,9 @@ seasons:
 
 # ─── Map Views (for annotate_months / corridor visualization) ────
 # Each view requires a base satellite image and pixel-space geometry.
+# NOTE: The base images (data/whole_base.png, data/visited_base.png) are not
+# included in the repository. Provide your own satellite screenshots, or use
+# the `generate` command with --map-style satellite to auto-fetch map tiles.
 maps:
   whole:
     base_image: "data/whole_base.png"

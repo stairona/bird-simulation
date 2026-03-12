@@ -66,12 +66,18 @@ def turbine_avoidance_factor(xy: np.ndarray) -> np.ndarray:
 
     Returns per-turbine avoidance values in [0, ~0.65].
     """
+    n = len(xy)
+    if n == 0:
+        return np.array([], dtype=float)
+    if n == 1:
+        return np.array([0.30])
+
     dx = xy[:, None, 0] - xy[None, :, 0]
     dy = xy[:, None, 1] - xy[None, :, 1]
     d = np.sqrt(dx * dx + dy * dy)
     np.fill_diagonal(d, np.inf)
 
-    k = min(6, len(xy) - 1)
+    k = min(6, n - 1)
     knn = np.sort(d, axis=1)[:, :k]
     mean_knn = np.mean(knn, axis=1)
 

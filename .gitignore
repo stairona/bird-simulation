@@ -14,8 +14,10 @@ birds_env/
 
 # Generated outputs
 outputs/
-data/*.csv
 data/*.png
+
+# Keep sample data tracked, ignore only generated CSVs
+!data/sample_turbines.csv
 
 # Config-specific outputs that users may generate
 *.log

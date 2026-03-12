@@ -186,6 +186,9 @@ def _parse_corridor_endpoint(raw: dict) -> MapCorridorEndpoints:
 
 def load_config(path: str) -> SiteConfig:
     """Load a site YAML and return a validated SiteConfig."""
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Config file not found: {path}")
+
     with open(path) as f:
         raw = yaml.safe_load(f)
 
@@ -242,6 +245,12 @@ def load_config(path: str) -> SiteConfig:
         )
         for m in raw.get("monthly_calendar", [])
     ]
+
+    if len(calendar) != 12:
+        raise ValueError(
+            f"monthly_calendar must have exactly 12 entries, got {len(calendar)}. "
+            f"Config: {path}"
+        )
 
     seasons = {}
     for k, v in raw.get("seasons", {}).items():

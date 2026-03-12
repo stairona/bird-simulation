@@ -65,7 +65,9 @@ def simulate_dataset(cfg: SiteConfig) -> List[Dict]:
             season_factor = 1.0
 
         hetero = rng.lognormal(mean=0.0, sigma=0.30, size=n)
-        lam = sim.base_rate * m_idx * dens * (1.0 - avoid) * season_factor * hetero
+        config_avoid = sim.collision.avoidance
+        lam = (sim.base_rate * m_idx * dens * (1.0 - avoid)
+               * (1.0 - config_avoid) * season_factor * hetero)
         lam = 0.90 * lam
         mort = rng.poisson(lam=lam).astype(int)
 
