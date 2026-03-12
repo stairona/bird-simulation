@@ -23,10 +23,23 @@ def make_turbine_layout(cfg: SiteConfig) -> Tuple[np.ndarray, np.ndarray]:
     """
     Create pseudo-spatial turbine layout from config clusters.
 
+    If the config has lat/lon turbine positions (from CSV import), those
+    are projected into [0,1] space instead of using cluster generation.
+
     Returns:
         turbine_ids: (N,) int array of IDs 1..N
         xy: (N, 2) array of positions in [0, 1] normalized space
     """
+    if cfg.turbine_latlon is not None:
+        from .geo import bounding_box, latlon_to_normalized
+        lats = cfg.turbine_latlon[:, 0]
+        lons = cfg.turbine_latlon[:, 1]
+        bbox = bounding_box(lats, lons)
+        xy = latlon_to_normalized(lats, lons, bbox)
+        n = len(xy)
+        turbine_ids = np.arange(1, n + 1, dtype=int)
+        return turbine_ids, xy
+
     n = cfg.turbine_count
     rng = np.random.default_rng(cfg.layout_seed)
 

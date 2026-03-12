@@ -37,14 +37,33 @@ python -m src.cli all --config configs/isabella.yaml --mode eco
 
 ## Using Your Own Site
 
-### 1. Create a config from the template
+### Option A: From a Turbine CSV (Recommended for researchers)
+
+If you have turbine positions as lat/lon coordinates in a CSV:
+
+```bash
+# Auto-generate a complete config from your turbine CSV
+python -m src.cli generate --turbines my_turbines.csv --region atlantic
+
+# Run the full pipeline
+python -m src.cli all --config configs/my_turbines.yaml
+```
+
+Available flyway regions: `atlantic`, `mississippi`, `central`, `pacific`, `western_palearctic`, `east_asian`
+
+The CSV should have `latitude`/`longitude` (or `lat`/`lon`) columns:
+```csv
+latitude,longitude
+43.745,-84.701
+43.748,-84.695
+```
+
+### Option B: From the template
 
 ```bash
 python -m src.cli init --name "My Wind Farm"
 # → creates configs/my_wind_farm.yaml
 ```
-
-### 2. Edit the config
 
 Open `configs/my_wind_farm.yaml` and fill in:
 
@@ -57,7 +76,7 @@ Open `configs/my_wind_farm.yaml` and fill in:
 
 See `configs/isabella.yaml` for a complete worked example.
 
-### 3. Run the pipeline
+### Run the pipeline
 
 ```bash
 # Phase 1 only: corridor maps
@@ -76,6 +95,37 @@ python -m src.cli agent --config configs/my_wind_farm.yaml
 python -m src.cli all --config configs/my_wind_farm.yaml
 ```
 
+## Scenario Comparison & Sensitivity Analysis
+
+### Compare multiple scenarios
+
+Run mortality simulations side by side for different configs:
+
+```bash
+python -m src.cli compare configs/scenario_a.yaml configs/scenario_b.yaml \
+  --names "Low avoidance,High avoidance"
+```
+
+Outputs: comparison bar chart, monthly breakdown, summary CSV.
+
+### Sensitivity sweep
+
+Vary a single parameter to see how it affects mortality:
+
+```bash
+# Sweep avoidance rate from 0% to 95%
+python -m src.cli sweep --config configs/isabella.yaml --param avoidance --steps 10
+
+# Sweep with specific values
+python -m src.cli sweep --config configs/isabella.yaml --param base_rate \
+  --values "0.5,0.75,1.0,1.5,2.0"
+
+# List available sweep parameters
+python -m src.cli sweep --config configs/isabella.yaml --param list
+```
+
+Sweepable parameters: `avoidance`, `base_rate`, `turbine_count`, `base_strike_prob`
+
 ## CLI Reference
 
 | Command | Description |
@@ -86,9 +136,12 @@ python -m src.cli all --config configs/my_wind_farm.yaml
 | `agent` | Phase 2 — Agent-based collision simulation + plots |
 | `all` | Run full pipeline (Phase 1 + Phase 2) |
 | `init` | Create a new site config from the template |
+| `generate` | Auto-generate config from turbine CSV + flyway region preset |
+| `compare` | Compare mortality across multiple config scenarios |
+| `sweep` | Sensitivity sweep of a simulation parameter |
 
 Common flags:
-- `--config PATH` — site YAML config (required for all except `init`)
+- `--config PATH` — site YAML config (required for all except `init` and `generate`)
 - `--mode eco|cinematic|pub` — rendering style for corridor maps
 - `--out DIR` — override output directory
 
@@ -122,7 +175,14 @@ bird-simulation/
 │   │   ├── corridors.py           # Gaussian dispersion, Bezier, density fields
 │   │   ├── turbines.py            # Layout, K-NN avoidance, deflection
 │   │   ├── collision.py           # Multi-factor collision probability
-│   │   └── calendar.py            # Monthly/seasonal calendar utilities
+│   │   ├── calendar.py            # Monthly/seasonal calendar utilities
+│   │   ├── geo.py                 # Lat/lon → normalized [0,1] projection
+│   │   ├── flyways.py             # Flyway presets (6 major migration routes)
+│   │   └── tiles.py               # Auto-fetch satellite map tiles
+│   ├── tools/                     # Researcher workflow tools
+│   │   ├── generate_config.py     # Auto-generate config from turbine CSV
+│   │   ├── compare.py             # Scenario comparison (side-by-side)
+│   │   └── sweep.py               # Sensitivity parameter sweeps
 │   ├── phase1_paths/              # Phase 1: corridor visualization
 │   │   ├── annotate_months.py     # Monthly map renderer
 │   │   └── collage.py             # Grid collage assembly (full/half/ppt)
@@ -130,7 +190,7 @@ bird-simulation/
 │       ├── simulate.py            # Statistical (Poisson) model
 │       ├── agent_sim.py           # Agent-based model
 │       └── charts.py              # Bar charts, heatmaps, layout plots
-├── src/scripts/                   # Original standalone scripts (preserved)
+├── tests/                         # pytest test suite (125 tests)
 ├── data/                          # Base satellite images go here
 ├── outputs/                       # Generated files (gitignored)
 ├── requirements.txt
@@ -169,6 +229,7 @@ simulation:         # Collision model tuning knobs
 - Matplotlib (chart generation)
 - pandas (optional analysis)
 - PyYAML (config loading)
+- contextily (optional — auto-fetch satellite map tiles)
 
 ## License
 

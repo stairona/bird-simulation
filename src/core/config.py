@@ -138,6 +138,10 @@ class SiteConfig:
     maps: Dict[str, MapView]
     simulation: SimulationParams
 
+    # Optional: lat/lon turbine positions loaded from CSV
+    turbine_csv: Optional[str] = None
+    turbine_latlon: Optional[Any] = None  # np.ndarray (N, 2) of [lat, lon]
+
     @property
     def migratory_species_keys(self) -> List[str]:
         """Species that participate in corridor migration (everything except 'local')."""
@@ -299,6 +303,21 @@ def load_config(path: str) -> SiteConfig:
         ),
     )
 
+    # Optional turbine CSV with lat/lon positions
+    turbine_csv_path = turb.get("csv", None)
+    turbine_latlon = None
+    if turbine_csv_path is not None:
+        if not os.path.isabs(turbine_csv_path):
+            turbine_csv_path = os.path.normpath(
+                os.path.join(config_dir, turbine_csv_path)
+            )
+        if os.path.exists(turbine_csv_path):
+            from .geo import bounding_box, latlon_to_normalized
+            from ..tools.generate_config import load_turbine_csv
+            import numpy as _np
+            lats, lons = load_turbine_csv(turbine_csv_path)
+            turbine_latlon = _np.column_stack([lats, lons])
+
     return SiteConfig(
         site_name=site.get("name", "Unnamed Site"),
         region=site.get("region", "Unknown"),
@@ -313,4 +332,6 @@ def load_config(path: str) -> SiteConfig:
         seasons=seasons,
         maps=maps,
         simulation=simulation,
+        turbine_csv=turbine_csv_path,
+        turbine_latlon=turbine_latlon,
     )

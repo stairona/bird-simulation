@@ -121,6 +121,57 @@ def cmd_init(args):
     print(f"Then run:  python -m src.cli all --config {output}")
 
 
+def cmd_generate(args):
+    from .tools.generate_config import generate_config
+
+    print(f"Generating config from {args.turbines} (region: {args.region})")
+    out = generate_config(
+        turbine_csv=args.turbines,
+        region=args.region,
+        site_name=args.name,
+        output_path=args.output,
+        fetch_map=args.fetch_map,
+        map_style=args.map_style,
+        seed=args.seed,
+    )
+    print(f"Config generated: {out}")
+    print(f"Run:  python -m src.cli all --config {out}")
+
+
+def cmd_compare(args):
+    from .tools.compare import compare_scenarios
+
+    config_paths = args.configs
+    names = args.names.split(",") if args.names else None
+    out = args.out or "outputs/comparison"
+
+    print(f"Comparing {len(config_paths)} scenarios...")
+    compare_scenarios(config_paths, names=names, out_dir=out)
+
+
+def cmd_sweep(args):
+    from .tools.sweep import run_sweep, SWEEPABLE_PARAMS
+
+    if args.param == "list":
+        print("Available sweep parameters:")
+        for k, v in SWEEPABLE_PARAMS.items():
+            lo, hi, n = v["default_range"]
+            print(f"  {k:20s} — {v['label']} (default range: {lo} to {hi})")
+        return
+
+    values = None
+    if args.values:
+        values = [float(v.strip()) for v in args.values.split(",")]
+
+    run_sweep(
+        config_path=args.config,
+        param=args.param,
+        values=values,
+        n_steps=args.steps,
+        out_dir=args.out or "outputs/sweep",
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="bird-sim",
@@ -172,6 +223,40 @@ def main():
     p_init.add_argument("--name", required=True, help="Site display name")
     p_init.add_argument("--output", help="Output YAML path")
     p_init.set_defaults(func=cmd_init)
+
+    # generate (from turbine CSV + flyway)
+    p_gen = sub.add_parser("generate", help="Auto-generate config from turbine CSV + flyway region")
+    p_gen.add_argument("--turbines", required=True, help="Path to turbine CSV (lat/lon columns)")
+    p_gen.add_argument("--region", required=True,
+                       choices=["atlantic", "mississippi", "central", "pacific",
+                                "western_palearctic", "east_asian"],
+                       help="Flyway region preset")
+    p_gen.add_argument("--name", help="Site display name (default: derived from CSV)")
+    p_gen.add_argument("--output", help="Output YAML path")
+    p_gen.add_argument("--fetch-map", action="store_true",
+                       help="Download satellite base map (requires contextily)")
+    p_gen.add_argument("--map-style", choices=["satellite", "street", "topo"],
+                       default="satellite", help="Map tile style")
+    p_gen.add_argument("--seed", type=int, default=42)
+    p_gen.set_defaults(func=cmd_generate)
+
+    # compare
+    p_cmp = sub.add_parser("compare", help="Compare mortality across multiple scenarios")
+    p_cmp.add_argument("configs", nargs="+", help="Config YAML files to compare")
+    p_cmp.add_argument("--names", help="Comma-separated scenario labels")
+    p_cmp.add_argument("--out", help="Output directory")
+    p_cmp.set_defaults(func=cmd_compare)
+
+    # sweep
+    p_swp = sub.add_parser("sweep", help="Sensitivity sweep of a simulation parameter")
+    p_swp.add_argument("--config", required=True, help="Base config YAML")
+    p_swp.add_argument("--param", required=True,
+                       help="Parameter to sweep (avoidance, base_rate, turbine_count, "
+                            "base_strike_prob) or 'list' to show all")
+    p_swp.add_argument("--values", help="Comma-separated values (overrides --steps)")
+    p_swp.add_argument("--steps", type=int, default=10, help="Number of sweep steps")
+    p_swp.add_argument("--out", help="Output directory")
+    p_swp.set_defaults(func=cmd_sweep)
 
     args = parser.parse_args()
     if not args.command:
