@@ -1,0 +1,231 @@
+# Isabella Wind Project — Michigan, Great Lakes Region
+# This is the reference configuration shipped as a worked example.
+# Copy this file and edit it to model your own wind farm site.
+
+site:
+  name: "Isabella Wind Project"
+  region: "Great Lakes"
+
+# ─── Turbine Layout ───────────────────────────────────────────────
+# Defines the spatial distribution of turbines in normalized [0,1] space.
+# 'clusters' describe Gaussian blobs; remaining turbines are uniform background.
+turbines:
+  count: 136
+  layout_seed: 7
+  clusters:
+    - center: [0.30, 0.65]
+      spread: [0.08, 0.08]
+      fraction: 0.45
+    - center: [0.70, 0.40]
+      spread: [0.10, 0.07]
+      fraction: 0.35
+    # Remaining 20% placed uniformly across [0.10–0.90, 0.15–0.85]
+
+# ─── Migration Corridors (normalized space) ───────────────────────
+# Each corridor is a dominant flyway passing through/near the wind farm.
+# angle_deg: direction of travel (0=east, 90=north)
+# sigma: lateral Gaussian spread (normalized units)
+# curvature: bending strength (positive = bend left of travel direction)
+# weight_by_month: optional per-month weighting [Jan..Dec], defaults to equal
+corridors:
+  - name: "SW-NE flyway"
+    angle_deg: 35
+    center: [0.50, 0.50]
+    sigma: 0.10
+    curvature: 0.06
+    species: ["songbirds", "waterfowl"]
+    weight_spring: 0.45
+    weight_fall: 0.60
+    weight_default: 0.52
+
+  - name: "N-S flyway"
+    angle_deg: 90
+    center_x: 0.52
+    sigma: 0.09
+    curvature: 0.03
+    species: ["raptors"]
+    weight_spring: 0.55
+    weight_fall: 0.40
+    weight_default: 0.48
+
+# ─── Density Hotspots ─────────────────────────────────────────────
+# Additional 2D Gaussian blobs that boost local bird density
+# (roosting areas, water features, etc.)
+density_blobs:
+  - center: [0.62, 0.58]
+    spread: [0.10, 0.08]
+    weight: 0.9
+  - center: [0.35, 0.42]
+    spread: [0.11, 0.09]
+    weight: 0.7
+  - center: [0.78, 0.32]
+    spread: [0.12, 0.10]
+    weight: 0.6
+
+# ─── Species Definitions ─────────────────────────────────────────
+# Visual and behavioral parameters per species group.
+species:
+  songbirds:
+    label: "Songbirds (warblers/sparrows)"
+    color: [255, 165, 0]
+    color_pub: [230, 150, 40]
+    arrow_count: 55
+    sigma: 18
+    arrow_width: 5
+    arrow_length: 58
+    alpha: 150
+  waterfowl:
+    label: "Waterfowl / shorebirds"
+    color: [60, 200, 255]
+    color_pub: [80, 170, 210]
+    arrow_count: 45
+    sigma: 14
+    arrow_width: 5
+    arrow_length: 56
+    alpha: 150
+  raptors:
+    label: "Raptors (hawks)"
+    color: [255, 60, 60]
+    color_pub: [210, 80, 80]
+    arrow_count: 26
+    sigma: 10
+    arrow_width: 6
+    arrow_length: 64
+    alpha: 160
+  local:
+    label: "Local/resident birds"
+    color: [60, 255, 140]
+    color_pub: [90, 210, 150]
+
+# ─── Monthly Migration Calendar ──────────────────────────────────
+# migration_index: 0.0 (no migration) to 1.0 (peak)
+# These drive both corridor visualization intensity and mortality rates.
+monthly_calendar:
+  - month: "Jan"
+    migration_index: 0.05
+    intensity: 0.10
+    label: "Winter: low activity"
+    season: "winter"
+  - month: "Feb"
+    migration_index: 0.02
+    intensity: 0.12
+    label: "Winter: low activity"
+    season: "winter"
+  - month: "Mar"
+    migration_index: 0.25
+    intensity: 0.40
+    label: "Spring build-up"
+    season: "spring"
+  - month: "Apr"
+    migration_index: 0.70
+    intensity: 0.85
+    label: "Spring: northbound peak (Apr-May)"
+    season: "spring"
+  - month: "May"
+    migration_index: 0.80
+    intensity: 1.00
+    label: "Spring: northbound peak (Apr-May)"
+    season: "spring"
+  - month: "Jun"
+    migration_index: 0.18
+    intensity: 0.20
+    label: "Summer: lower migration period"
+    season: "summer"
+  - month: "Jul"
+    migration_index: 0.12
+    intensity: 0.15
+    label: "Summer: lower migration period"
+    season: "summer"
+  - month: "Aug"
+    migration_index: 0.40
+    intensity: 0.35
+    label: "Late summer: ramp-up"
+    season: "summer"
+  - month: "Sep"
+    migration_index: 0.65
+    intensity: 0.85
+    label: "Fall: southbound peak (Sep-Nov)"
+    season: "fall"
+  - month: "Oct"
+    migration_index: 0.85
+    intensity: 1.00
+    label: "Fall: southbound peak (Sep-Nov)"
+    season: "fall"
+  - month: "Nov"
+    migration_index: 0.28
+    intensity: 0.45
+    label: "Fall: southbound peak (Sep-Nov)"
+    season: "fall"
+  - month: "Dec"
+    migration_index: 0.06
+    intensity: 0.10
+    label: "Winter: low activity"
+    season: "winter"
+
+# ─── Season Parameters (agent-based sim) ─────────────────────────
+seasons:
+  winter:
+    months: [12, 1, 2]
+    migration_intensity: 0.20
+    resident_fraction: 0.85
+    night_fraction: 0.45
+    weather_risk: 1.10
+  spring:
+    months: [3, 4, 5]
+    migration_intensity: 1.00
+    resident_fraction: 0.45
+    night_fraction: 0.60
+    weather_risk: 1.20
+  summer:
+    months: [6, 7, 8]
+    migration_intensity: 0.25
+    resident_fraction: 0.75
+    night_fraction: 0.40
+    weather_risk: 1.00
+  fall:
+    months: [9, 10, 11]
+    migration_intensity: 0.90
+    resident_fraction: 0.50
+    night_fraction: 0.65
+    weather_risk: 1.25
+
+# ─── Map Views (for annotate_months / corridor visualization) ────
+# Each view requires a base satellite image and pixel-space geometry.
+maps:
+  whole:
+    base_image: "data/whole_base.png"
+    turbine_pixels: [[980, 410], [1060, 470], [1010, 360], [990, 300], [1040, 280]]
+    corridor_endpoints:
+      songbirds:  {p0: [180, 720],  p3: [1860, 430],  curv: 160}
+      waterfowl:  {p0: [120, 520],  p3: [1910, 520],  curv: -40}
+      raptors:    {p0: [1700, 120], p3: [1700, 1020], curv: 60}
+      local:      {center: [1020, 520], radius: 260}
+  visited:
+    base_image: "data/visited_base.png"
+    turbine_pixels: [[1060, 520], [1180, 600], [1050, 650], [990, 360], [1090, 300]]
+    corridor_endpoints:
+      songbirds:  {p0: [140, 710],  p3: [1880, 430],  curv: 140}
+      waterfowl:  {p0: [90, 520],   p3: [1930, 520],  curv: -30}
+      raptors:    {p0: [1700, 90],  p3: [1700, 1040], curv: 50}
+      local:      {center: [1030, 520], radius: 220}
+
+# ─── Simulation Parameters ────────────────────────────────────────
+simulation:
+  seed: 7
+  base_rate: 0.75
+  winter_suppression: 0.35
+
+  # Agent-based model knobs
+  agent:
+    birds_per_day_base: 600
+    migrant_speed: 2.4
+    resident_speed: 1.2
+    steps_per_day: 18
+    world_size: [100.0, 100.0]
+
+  collision:
+    rotor_radius: 2.2
+    base_strike_prob: 0.0025
+    avoidance: 0.80
+    night_risk_mult: 1.5
+    altitude_match_prob: 0.55

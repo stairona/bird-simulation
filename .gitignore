@@ -17,6 +17,9 @@ outputs/
 data/*.csv
 data/*.png
 
+# Config-specific outputs that users may generate
+*.log
+
 # IDE
 .vscode/
 .idea/

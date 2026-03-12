@@ -1,0 +1,163 @@
+# ─── Site Configuration Template ──────────────────────────────────
+# Copy this file, rename it to your site, and fill in the values.
+# See configs/isabella.yaml for a complete worked example.
+#
+# Usage:
+#   python -m src.cli paths --config configs/my_site.yaml --mode eco
+#   python -m src.cli mortality --config configs/my_site.yaml
+#   python -m src.cli all --config configs/my_site.yaml
+
+site:
+  name: "My Wind Farm"        # Display name for charts and maps
+  region: "Your Region"       # e.g. "Central Flyway", "Pacific Coast"
+
+# ─── Turbine Layout ───────────────────────────────────────────────
+# All coordinates are normalized to [0, 1].
+# Define Gaussian clusters where turbines concentrate.
+# Fractions should sum to <= 1.0; remainder placed uniformly.
+turbines:
+  count: 50                   # Total number of turbines
+  layout_seed: 42             # Seed for reproducible placement
+  clusters:
+    - center: [0.40, 0.50]
+      spread: [0.10, 0.10]
+      fraction: 0.60
+    # Add more clusters as needed:
+    # - center: [0.70, 0.30]
+    #   spread: [0.08, 0.08]
+    #   fraction: 0.25
+
+# ─── Migration Corridors ─────────────────────────────────────────
+# Define the dominant flyways passing through your site.
+# angle_deg: 0=east, 90=north, 180=west, 270=south
+# sigma: lateral spread (wider = more diffuse corridor)
+# curvature: how much the flyway bends (0 = straight)
+corridors:
+  - name: "Primary flyway"
+    angle_deg: 0              # Direction of travel
+    center: [0.50, 0.50]     # Center of corridor in normalized space
+    sigma: 0.10
+    curvature: 0.0
+    species: ["songbirds"]
+    weight_spring: 0.50
+    weight_fall: 0.50
+    weight_default: 0.50
+  # Add more corridors:
+  # - name: "Secondary flyway"
+  #   angle_deg: 90
+  #   center_x: 0.50
+  #   sigma: 0.09
+  #   curvature: 0.0
+  #   species: ["raptors"]
+
+# ─── Density Hotspots (optional) ─────────────────────────────────
+# 2D Gaussian blobs for areas of elevated bird activity
+# (water features, roosting sites, feeding areas)
+density_blobs: []
+  # - center: [0.50, 0.50]
+  #   spread: [0.10, 0.08]
+  #   weight: 0.8
+
+# ─── Species Definitions ─────────────────────────────────────────
+# Define all species groups referenced by your corridors.
+# Colors are RGB [0-255]. Pub colors are for publication mode.
+species:
+  songbirds:
+    label: "Songbirds"
+    color: [255, 165, 0]
+    color_pub: [230, 150, 40]
+    arrow_count: 55
+    sigma: 18
+    arrow_width: 5
+    arrow_length: 58
+    alpha: 150
+  local:
+    label: "Local/resident birds"
+    color: [60, 255, 140]
+    color_pub: [90, 210, 150]
+  # Add more species groups as needed:
+  # raptors:
+  #   label: "Raptors"
+  #   color: [255, 60, 60]
+  #   ...
+
+# ─── Monthly Migration Calendar ──────────────────────────────────
+# 12 entries, one per month.
+# migration_index: drives mortality model (0.0 to 1.0)
+# intensity: drives visual corridor density (0.0 to 1.0)
+monthly_calendar:
+  - {month: "Jan", migration_index: 0.05, intensity: 0.10, label: "Winter", season: "winter"}
+  - {month: "Feb", migration_index: 0.05, intensity: 0.10, label: "Winter", season: "winter"}
+  - {month: "Mar", migration_index: 0.30, intensity: 0.40, label: "Spring build-up", season: "spring"}
+  - {month: "Apr", migration_index: 0.70, intensity: 0.85, label: "Spring peak", season: "spring"}
+  - {month: "May", migration_index: 0.80, intensity: 1.00, label: "Spring peak", season: "spring"}
+  - {month: "Jun", migration_index: 0.15, intensity: 0.20, label: "Summer", season: "summer"}
+  - {month: "Jul", migration_index: 0.10, intensity: 0.15, label: "Summer", season: "summer"}
+  - {month: "Aug", migration_index: 0.35, intensity: 0.35, label: "Late summer", season: "summer"}
+  - {month: "Sep", migration_index: 0.65, intensity: 0.85, label: "Fall peak", season: "fall"}
+  - {month: "Oct", migration_index: 0.85, intensity: 1.00, label: "Fall peak", season: "fall"}
+  - {month: "Nov", migration_index: 0.30, intensity: 0.45, label: "Fall winding down", season: "fall"}
+  - {month: "Dec", migration_index: 0.05, intensity: 0.10, label: "Winter", season: "winter"}
+
+# ─── Season Parameters ────────────────────────────────────────────
+seasons:
+  winter:
+    months: [12, 1, 2]
+    migration_intensity: 0.20
+    resident_fraction: 0.85
+    night_fraction: 0.45
+    weather_risk: 1.10
+  spring:
+    months: [3, 4, 5]
+    migration_intensity: 1.00
+    resident_fraction: 0.45
+    night_fraction: 0.60
+    weather_risk: 1.20
+  summer:
+    months: [6, 7, 8]
+    migration_intensity: 0.25
+    resident_fraction: 0.75
+    night_fraction: 0.40
+    weather_risk: 1.00
+  fall:
+    months: [9, 10, 11]
+    migration_intensity: 0.90
+    resident_fraction: 0.50
+    night_fraction: 0.65
+    weather_risk: 1.25
+
+# ─── Map Views ────────────────────────────────────────────────────
+# Base satellite images with pixel-space corridor geometry.
+# You need at least one view. Add as many as you like.
+maps:
+  overview:
+    base_image: "data/overview.png"
+    turbine_pixels: [[500, 400], [600, 350]]     # Turbine marker positions in pixels
+    corridor_endpoints:
+      songbirds: {p0: [100, 700], p3: [1800, 400], curv: 100}
+      local:     {center: [1000, 500], radius: 250}
+  # closeup:
+  #   base_image: "data/closeup.png"
+  #   turbine_pixels: [...]
+  #   corridor_endpoints:
+  #     songbirds: {p0: [...], p3: [...], curv: ...}
+
+# ─── Simulation Parameters ────────────────────────────────────────
+simulation:
+  seed: 42
+  base_rate: 0.75
+  winter_suppression: 0.35
+
+  agent:
+    birds_per_day_base: 600
+    migrant_speed: 2.4
+    resident_speed: 1.2
+    steps_per_day: 18
+    world_size: [100.0, 100.0]
+
+  collision:
+    rotor_radius: 2.2
+    base_strike_prob: 0.0025
+    avoidance: 0.80
+    night_risk_mult: 1.5
+    altitude_match_prob: 0.55

@@ -1,124 +1,174 @@
-# Bird Mortality Visualization Suite
+# Bird Collision Simulation Toolkit
 
-A collection of Python tools for wind energy researchers and ecologists to visualize bird collision risk, simulate mortality patterns, and create publication-ready maps and charts.
+A config-driven Python toolkit for wind energy researchers and ecologists to simulate bird collision risk, visualize migration corridors, and produce mortality analysis — **for any wind farm site**.
 
-## What Problem Does This Solve?
+## How It Works
 
-Wind farms need to assess and communicate their impact on bird populations. This project provides a toolkit to:
-- Generate realistic monthly bird corridor visualizations based on migration patterns
-- Simulate mortality data for analysis and reporting
-- Create professional collages and charts for presentations and publications
-- Support both ecological realism and cinematic/presentation modes
+The toolkit follows a two-phase pipeline:
 
-## Features
+```
+Phase 1: MIGRATORY PATHS                Phase 2: MORTALITY ANALYSIS
+┌─────────────────────────┐              ┌────────────────────────────┐
+│  Your site_config.yaml  │─────────────▶│  Uses corridors + layout   │
+│                         │              │  from the same config      │
+│  Renders monthly maps   │              │                            │
+│  with corridors on your │              │  Statistical (Poisson) and │
+│  satellite images       │              │  agent-based simulations   │
+│                         │              │                            │
+│  Outputs:               │              │  Outputs:                  │
+│  - 24+ annotated PNGs   │              │  - Mortality CSV           │
+│  - Collages (grid, PPT) │              │  - Monthly bar charts      │
+└─────────────────────────┘              │  - Heatmaps + layout plots │
+                                         └────────────────────────────┘
+```
 
-### 1. **annotate_months.py**
-Generates 24 annotated maps (12 months × 2 views: "whole" wind farm and "visited" close-up):
-- **Ecological mode** (`--mode eco`): Gaussian dispersion, turbine deflection, curvature for realistic migration corridors
-- **Cinematic mode** (`--mode cinematic`): Glow effects, motion blur, density blending for presentations
-- **Publication mode** (`--mode pub`): Clean, crisp styling suitable for academic papers
-
-### 2. **make_collage.py**
-Assembles the 24 monthly maps into two 12-image collages (4×3 grid) — one for "visited" view, one for "whole" view.
-
-### 3. **make_collage_sets.py**
-Creates first-half (Jan–Jun) and second-half (Jul–Dec) collages (3×2 grid) for manageable seasonal presentations.
-
-### 4. **make_collages_ppt.py**
-Generates high-resolution PowerPoint-ready collages (4K, 16:9 aspect ratio) with optional month labels.
-
-### 5. **simulate_isabella_bird_mortality.py**
-Simulates bird mortality data for a hypothetical wind farm (136 turbines) across 12 months and produces:
-- CSV file with detailed simulation data
-- Bar chart of total monthly mortality
-- Bar chart of average mortality per turbine per month
-
-## Technologies
-
-- **Python 3.8+**
-- **Pillow** (PIL) – Image generation and manipulation
-- **NumPy** – Numerical simulations and corridor calculations
-- **Matplotlib** – Chart generation
-- **pandas** – Data handling (optional for analysis)
-
-## Installation
+## Quick Start
 
 ```bash
-# Clone the repository
+# Clone and install
 git clone https://github.com/stairona/bird-simulation.git
 cd bird-simulation
-
-# Create virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\\Scripts\\activate
-
-# Install dependencies
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
+
+# Run the full pipeline with the included Isabella Wind example
+python -m src.cli all --config configs/isabella.yaml --mode eco
 ```
 
-## Usage
+## Using Your Own Site
 
-### Generate Monthly Annotated Maps
+### 1. Create a config from the template
 
 ```bash
-python src/scripts/annotate_months.py --mode eco
+python -m src.cli init --name "My Wind Farm"
+# → creates configs/my_wind_farm.yaml
 ```
 
-This produces 24 PNG files in `outputs/monthly-annotated-maps/`:
-- `whole_01_Jan_eco.png` through `whole_12_Dec_eco.png`
-- `visited_01_Jan_eco.png` through `visited_12_Dec_eco.png`
+### 2. Edit the config
 
-### Create Collages
+Open `configs/my_wind_farm.yaml` and fill in:
+
+- **Turbine layout** — how many turbines, where they cluster
+- **Migration corridors** — direction, width, curvature of flyways
+- **Species** — which bird groups use each corridor
+- **Monthly calendar** — migration intensity by month for your region
+- **Map views** — your satellite images + pixel-space corridor geometry
+- **Simulation parameters** — collision model tuning knobs
+
+See `configs/isabella.yaml` for a complete worked example.
+
+### 3. Run the pipeline
 
 ```bash
-# Full 12-month collages
-python src/scripts/make_collage.py
+# Phase 1 only: corridor maps
+python -m src.cli paths --config configs/my_wind_farm.yaml --mode eco
 
-# Half-year collages (Jan-Jun, Jul-Dec)
-python src/scripts/make_collage_sets.py
+# Phase 1 collages
+python -m src.cli collages --config configs/my_wind_farm.yaml
 
-# PowerPoint-ready high-res collages
-python src/scripts/make_collages_ppt.py
+# Phase 2 only: statistical mortality simulation
+python -m src.cli mortality --config configs/my_wind_farm.yaml
+
+# Phase 2: agent-based simulation
+python -m src.cli agent --config configs/my_wind_farm.yaml
+
+# Everything at once
+python -m src.cli all --config configs/my_wind_farm.yaml
 ```
 
-Outputs are saved to `outputs/summary-plots/` and `outputs/ppt-collages/`.
+## CLI Reference
 
-### Run Mortality Simulation
+| Command | Description |
+|---------|-------------|
+| `paths` | Phase 1 — Generate monthly corridor maps for each map view |
+| `collages` | Assemble monthly maps into grid collages (full/half/ppt) |
+| `mortality` | Phase 2 — Statistical Poisson mortality simulation + charts |
+| `agent` | Phase 2 — Agent-based collision simulation + plots |
+| `all` | Run full pipeline (Phase 1 + Phase 2) |
+| `init` | Create a new site config from the template |
 
-```bash
-python src/scripts/simulate_isabella_bird_mortality.py
-```
+Common flags:
+- `--config PATH` — site YAML config (required for all except `init`)
+- `--mode eco|cinematic|pub` — rendering style for corridor maps
+- `--out DIR` — override output directory
 
-Creates a timestamped folder in `outputs/simulation-outputs/` containing:
-- `isabella_simulated_mortality.csv`
-- `graph_total_monthly_mortality_bar.png`
-- `graph_avg_per_turbine_monthly_bar.png`
+## Mathematical Models
+
+All models are site-agnostic and live in `src/core/`:
+
+| Model | File | Description |
+|-------|------|-------------|
+| Gaussian corridor dispersion | `corridors.py` | Lateral spread from centerline with adjustable sigma |
+| Bezier curve corridors | `corridors.py` | Smooth flyway bending with curvature parameter |
+| 2D density field | `corridors.py` | Rotated Gaussian cross-sections + hotspot blobs |
+| K-NN avoidance factor | `turbines.py` | Sigmoid-based clustering penalty from nearest neighbors |
+| Turbine deflection | `turbines.py` | Birds deflect position/heading near turbine clusters |
+| Multi-factor collision | `collision.py` | strike_prob × weather × night × altitude × (1 − avoidance) |
+| Poisson mortality | `simulate.py` | λ = base_rate × migration × density × (1 − avoid) × season × heterogeneity |
+| Agent-based movement | `agent_sim.py` | Migrants follow corridors; residents random-walk; step-by-step proximity checks |
 
 ## Project Structure
 
 ```
 bird-simulation/
+├── configs/
+│   ├── isabella.yaml              # Worked example (Isabella Wind, Michigan)
+│   └── example_template.yaml      # Blank template for new sites
 ├── src/
-│   └── scripts/          # Main Python tools
-├── data/                 # Input assets (base satellite images)
-├── outputs/             # Generated files (gitignored)
-│   ├── monthly-annotated-maps/
-│   ├── summary-plots/
-│   ├── ppt-collages/
-│   └── simulation-outputs/
-├── bird-simulation/     # Subproject (original nested repo)
-├── collage-creator/     # Subproject (original nested repo)
-├── docs/
-├── tests/
+│   ├── cli.py                     # Unified command-line interface
+│   ├── __main__.py                # python -m src entry point
+│   ├── core/                      # Site-agnostic mathematical models
+│   │   ├── config.py              # YAML loader + dataclasses
+│   │   ├── corridors.py           # Gaussian dispersion, Bezier, density fields
+│   │   ├── turbines.py            # Layout, K-NN avoidance, deflection
+│   │   ├── collision.py           # Multi-factor collision probability
+│   │   └── calendar.py            # Monthly/seasonal calendar utilities
+│   ├── phase1_paths/              # Phase 1: corridor visualization
+│   │   ├── annotate_months.py     # Monthly map renderer
+│   │   └── collage.py             # Grid collage assembly (full/half/ppt)
+│   └── phase2_mortality/          # Phase 2: mortality simulation
+│       ├── simulate.py            # Statistical (Poisson) model
+│       ├── agent_sim.py           # Agent-based model
+│       └── charts.py              # Bar charts, heatmaps, layout plots
+├── src/scripts/                   # Original standalone scripts (preserved)
+├── data/                          # Base satellite images go here
+├── outputs/                       # Generated files (gitignored)
 ├── requirements.txt
 └── README.md
 ```
 
-## Notes
+## Rendering Modes
 
-- Base images (`whole_base.png`, `visited_base.png`) must exist in `data/` for `annotate_months.py` to run.
-- Output directories are created automatically if they don't exist.
-- The `bird-simulation/` and `collage-creator/` subfolders are preserved from the original development history but are not required for the main scripts.
+Phase 1 corridor maps support three visual styles:
+
+- **eco** — Gaussian dispersion + turbine deflection for ecological realism
+- **cinematic** — Glow effects, motion blur, density blending for presentations
+- **pub** — Clean, crisp, restrained styling for academic papers
+
+## Config Format
+
+The YAML config has these sections:
+
+```yaml
+site:               # Name and region
+turbines:           # Count, clusters, layout seed
+corridors:          # Flyway definitions (angle, sigma, curvature, species)
+density_blobs:      # Optional hotspots (roosting, water)
+species:            # Species groups with visual parameters
+monthly_calendar:   # 12-month migration intensity + labels
+seasons:            # Season definitions for agent sim
+maps:               # Satellite images + pixel-space geometry
+simulation:         # Collision model tuning knobs
+```
+
+## Dependencies
+
+- Python 3.8+
+- Pillow (image rendering)
+- NumPy (numerical models)
+- Matplotlib (chart generation)
+- pandas (optional analysis)
+- PyYAML (config loading)
 
 ## License
 
