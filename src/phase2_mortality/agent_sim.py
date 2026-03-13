@@ -15,83 +15,12 @@ from datetime import datetime
 from typing import Dict, List, Tuple
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 from ..core.config import SiteConfig
-from ..core.corridors import dist_point_to_segment
+from ..core.corridors import corridors_to_world_space
 from ..core.collision import per_step_collision_prob
 from ..core.calendar import build_month_to_season
-
-
-def _build_corridors_from_config(cfg: SiteConfig) -> List[Dict]:
-    """
-    Convert config corridors to the agent sim format:
-    line segments with p0/p1 endpoints and sigma.
-    """
-    import math
-    W, H = cfg.simulation.agent.world_size
-    corridors = []
-
-    for corr in cfg.corridors:
-        theta = math.radians(corr.angle_deg)
-        dx = math.cos(theta)
-        dy = math.sin(theta)
-
-        if corr.center is not None:
-            cx, cy = corr.center
-            # Scale to world coords
-            cx *= W
-            cy *= H
-        elif corr.center_x is not None:
-            cx = corr.center_x * W
-            cy = H / 2.0
-        else:
-            cx, cy = W / 2.0, H / 2.0
-
-        # Extend line to edges of world
-        half_diag = math.hypot(W, H)
-        p0 = np.array([cx - dx * half_diag, cy - dy * half_diag])
-        p1 = np.array([cx + dx * half_diag, cy + dy * half_diag])
-
-        # Clip to world bounds (rough)
-        p0 = np.clip(p0, [0, 0], [W, H])
-        p1 = np.clip(p1, [0, 0], [W, H])
-
-        corridors.append({
-            "name": corr.name,
-            "p0": p0,
-            "p1": p1,
-            "sigma": corr.sigma * W,
-        })
-
-    return corridors
-
-
-def _place_turbines_from_config(cfg: SiteConfig) -> np.ndarray:
-    """Place turbines in world-space coordinates from config clusters."""
-    W, H = cfg.simulation.agent.world_size
-    rng = np.random.default_rng(cfg.layout_seed)
-    n = cfg.turbine_count
-
-    parts = []
-    allocated = 0
-    for cluster in cfg.clusters:
-        count = int(n * cluster.fraction)
-        allocated += count
-        cx, cy = cluster.center
-        sx, sy = cluster.spread
-        pts = rng.normal(loc=[cx * W, cy * H], scale=[sx * W, sy * H], size=(count, 2))
-        parts.append(pts)
-
-    remaining = n - allocated
-    if remaining > 0:
-        bg = rng.uniform([0, 0], [W, H], size=(remaining, 2))
-        parts.append(bg)
-
-    turbines = np.vstack(parts)[:n]
-    turbines[:, 0] = np.clip(turbines[:, 0], 0, W)
-    turbines[:, 1] = np.clip(turbines[:, 1], 0, H)
-    return turbines
+from ..core.turbines import make_turbine_layout
 
 
 def _spawn_migrants(
@@ -155,8 +84,11 @@ def simulate_agent(cfg: SiteConfig) -> Tuple[np.ndarray, np.ndarray, np.ndarray,
     W, H = agent.world_size
 
     rng = np.random.default_rng(cfg.simulation.seed)
-    corridors = _build_corridors_from_config(cfg)
-    turbines = _place_turbines_from_config(cfg)
+    corridors = corridors_to_world_space(cfg)
+    _, xy_norm = make_turbine_layout(cfg)
+    turbines = xy_norm.copy()
+    turbines[:, 0] *= W
+    turbines[:, 1] *= H
     month_to_season = build_month_to_season(cfg)
 
     DAYS = 365
@@ -255,18 +187,15 @@ def run_agent_simulation(cfg: SiteConfig, out_dir: str = "outputs/agent-sim-outp
 
     plot_agent_results(daily_birds, daily_deaths, heat, turbines, cfg, run_dir)
 
-    # Monthly summary
-    month_lengths_list = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    from ..core.calendar import MONTH_NAMES, MONTH_LENGTHS
 
     idx = 0
     print(f"\nMonthly totals ({cfg.site_name}):")
-    for m, ml in enumerate(month_lengths_list):
+    for m, ml in enumerate(MONTH_LENGTHS):
         md = int(daily_deaths[idx:idx + ml].sum())
         mb = int(daily_birds[idx:idx + ml].sum())
         rate = md / max(mb, 1)
-        print(f"  {month_names[m]}: deaths={md:5d}  birds={mb:7d}  rate={rate:.5f}")
+        print(f"  {MONTH_NAMES[m]}: deaths={md:5d}  birds={mb:7d}  rate={rate:.5f}")
         idx += ml
 
     print(f"\nOutput folder: {run_dir}")

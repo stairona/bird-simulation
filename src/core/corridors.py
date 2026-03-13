@@ -8,7 +8,7 @@ All functions are site-agnostic: corridors, blobs, and weights come from config.
 from __future__ import annotations
 
 import math
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -179,3 +179,42 @@ def dist_point_to_segment(P: np.ndarray, A: np.ndarray, B: np.ndarray) -> float:
     t = np.clip(t, 0.0, 1.0)
     proj = A + t * AB
     return float(np.linalg.norm(P - proj))
+
+
+# ── World-space corridor conversion (shared by agent sim + charts) ─
+
+def corridors_to_world_space(cfg: SiteConfig) -> List[Dict]:
+    """
+    Convert config corridors to world-space line segments for the
+    agent-based simulation and layout charts.
+
+    Returns list of dicts with keys: name, p0, p1, sigma
+    (all in world-space coordinates).
+    """
+    W, H = cfg.simulation.agent.world_size
+    result = []
+
+    for corr in cfg.corridors:
+        theta = math.radians(corr.angle_deg)
+        dx = math.cos(theta)
+        dy = math.sin(theta)
+
+        if corr.center is not None:
+            cx, cy = corr.center[0] * W, corr.center[1] * H
+        elif corr.center_x is not None:
+            cx, cy = corr.center_x * W, H / 2.0
+        else:
+            cx, cy = W / 2.0, H / 2.0
+
+        half_diag = math.hypot(W, H)
+        p0 = np.clip([cx - dx * half_diag, cy - dy * half_diag], [0, 0], [W, H])
+        p1 = np.clip([cx + dx * half_diag, cy + dy * half_diag], [0, 0], [W, H])
+
+        result.append({
+            "name": corr.name,
+            "p0": np.array(p0),
+            "p1": np.array(p1),
+            "sigma": corr.sigma * W,
+        })
+
+    return result

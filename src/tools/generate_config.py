@@ -12,53 +12,14 @@ Workflow:
 
 from __future__ import annotations
 
-import csv
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import yaml
 
 from ..core.flyways import SEASON_DEFAULTS, get_flyway
-from ..core.geo import BoundingBox, bounding_box, latlon_to_normalized
-
-
-def load_turbine_csv(path: str) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Load turbine positions from a CSV with columns ``latitude,longitude``
-    (or ``lat,lon``). Returns (lats, lons) arrays.
-    """
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"Turbine CSV not found: {path}")
-
-    lats, lons = [], []
-    with open(path, newline="") as f:
-        reader = csv.DictReader(f)
-        fieldnames = [c.strip().lower() for c in (reader.fieldnames or [])]
-
-        lat_col = next((c for c in reader.fieldnames or []
-                        if c.strip().lower() in ("latitude", "lat")), None)
-        lon_col = next((c for c in reader.fieldnames or []
-                        if c.strip().lower() in ("longitude", "lon", "lng")), None)
-
-        if lat_col is None or lon_col is None:
-            raise ValueError(
-                f"CSV must have latitude/lat and longitude/lon/lng columns. "
-                f"Found: {reader.fieldnames}"
-            )
-
-        for row in reader:
-            lat_val = row[lat_col].strip()
-            lon_val = row[lon_col].strip()
-            if not lat_val or not lon_val:
-                continue
-            lats.append(float(lat_val))
-            lons.append(float(lon_val))
-
-    if len(lats) == 0:
-        raise ValueError(f"No valid rows found in {path}")
-
-    return np.array(lats), np.array(lons)
+from ..core.geo import BoundingBox, bounding_box, latlon_to_normalized, load_turbine_csv
 
 
 def _derive_clusters(

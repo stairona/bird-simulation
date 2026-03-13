@@ -26,8 +26,7 @@ from ..core.corridors import corridor_density
 from ..core.calendar import migration_index_array
 from ..core.turbines import make_turbine_layout, turbine_avoidance_factor
 
-MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+from ..core.calendar import MONTH_NAMES
 
 
 def simulate_dataset(cfg: SiteConfig) -> List[Dict]:
@@ -59,21 +58,18 @@ def simulate_dataset(cfg: SiteConfig) -> List[Dict]:
 
         if m in winter_month_indices:
             season_factor = sim.winter_suppression
-        elif m == 10:  # Nov
-            season_factor = 0.75
         else:
             season_factor = 1.0
 
-        hetero = rng.lognormal(mean=0.0, sigma=0.30, size=n)
+        hetero = rng.lognormal(mean=0.0, sigma=sim.heterogeneity_sigma, size=n)
         config_avoid = sim.collision.avoidance
         lam = (sim.base_rate * m_idx * dens * (1.0 - avoid)
                * (1.0 - config_avoid) * season_factor * hetero)
-        lam = 0.90 * lam
+        lam = sim.mortality_scaling * lam
         mort = rng.poisson(lam=lam).astype(int)
 
-        # Cap winter months to 1 per turbine
         if m in winter_month_indices:
-            mort = np.minimum(mort, 1)
+            mort = np.minimum(mort, sim.winter_cap)
 
         for i, tid in enumerate(turbine_ids):
             rows.append({

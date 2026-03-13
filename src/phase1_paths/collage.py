@@ -18,24 +18,8 @@ from typing import List, Optional
 from PIL import Image, ImageDraw, ImageFont
 
 from ..core.config import SiteConfig
-
-
-MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-
-def _load_font(size: int) -> ImageFont.ImageFont:
-    for path in [
-        "/System/Library/Fonts/SFNSDisplay.ttf",
-        "/System/Library/Fonts/Supplemental/Arial.ttf",
-        "/Library/Fonts/Arial.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    ]:
-        try:
-            return ImageFont.truetype(path, size=size)
-        except Exception:
-            pass
-    return ImageFont.load_default()
+from ..core.calendar import MONTH_NAMES
+from ..core.fonts import load_font as _load_font
 
 
 def _find_month_file(input_dir: str, prefix: str, month: int) -> Optional[str]:

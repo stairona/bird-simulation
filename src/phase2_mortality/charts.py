@@ -11,12 +11,13 @@ import os
 from typing import Dict, List
 
 import numpy as np
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from ..core.config import SiteConfig
-
-MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+from ..core.calendar import MONTH_NAMES
+from ..core.corridors import corridors_to_world_space
 
 
 # ── Statistical simulation charts ─────────────────────────────────
@@ -144,23 +145,9 @@ def plot_agent_results(
     plt.figure(figsize=(7, 7))
     plt.scatter(turbines[:, 0], turbines[:, 1], s=18, label="Turbines")
 
-    import math
-    for corr in cfg.corridors:
-        theta = math.radians(corr.angle_deg)
-        dx, dy = math.cos(theta), math.sin(theta)
-        if corr.center is not None:
-            cx, cy = corr.center[0] * W, corr.center[1] * H
-        elif corr.center_x is not None:
-            cx, cy = corr.center_x * W, H / 2.0
-        else:
-            cx, cy = W / 2.0, H / 2.0
-
-        half = math.hypot(W, H) * 0.6
-        x0 = np.clip(cx - dx * half, 0, W)
-        y0 = np.clip(cy - dy * half, 0, H)
-        x1 = np.clip(cx + dx * half, 0, W)
-        y1 = np.clip(cy + dy * half, 0, H)
-        plt.plot([x0, x1], [y0, y1], linewidth=2, label=corr.name)
+    for c in corridors_to_world_space(cfg):
+        plt.plot([c["p0"][0], c["p1"][0]], [c["p0"][1], c["p1"][1]],
+                 linewidth=2, label=c["name"])
 
     plt.xlim(0, W)
     plt.ylim(0, H)

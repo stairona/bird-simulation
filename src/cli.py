@@ -142,7 +142,7 @@ def cmd_compare(args):
     from .tools.compare import compare_scenarios
 
     config_paths = args.configs
-    names = args.names.split(",") if args.names else None
+    names = [n.strip() for n in args.names.split(",")] if args.names else None
     out = args.out or "outputs/comparison"
 
     print(f"Comparing {len(config_paths)} scenarios...")

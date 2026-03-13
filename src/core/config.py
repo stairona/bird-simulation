@@ -115,6 +115,9 @@ class SimulationParams:
     seed: int = 42
     base_rate: float = 0.75
     winter_suppression: float = 0.35
+    heterogeneity_sigma: float = 0.30
+    mortality_scaling: float = 0.90
+    winter_cap: int = 1
     agent: AgentParams = field(default_factory=AgentParams)
     collision: CollisionParams = field(default_factory=CollisionParams)
 
@@ -156,9 +159,8 @@ class SiteConfig:
 
     @property
     def winter_month_names(self) -> set:
-        month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        return {month_names[m - 1] for m in self.winter_months}
+        from .calendar import MONTH_NAMES
+        return {MONTH_NAMES[m - 1] for m in self.winter_months}
 
 
 def _tup2(raw) -> Tuple[float, float]:
@@ -207,10 +209,15 @@ def load_config(path: str) -> SiteConfig:
 
     corridors = []
     for c in raw.get("corridors", []):
+        sigma = float(c["sigma"])
+        if sigma <= 0:
+            raise ValueError(
+                f"Corridor '{c['name']}' has sigma={sigma}; must be > 0"
+            )
         corridors.append(CorridorDef(
             name=c["name"],
             angle_deg=float(c["angle_deg"]),
-            sigma=float(c["sigma"]),
+            sigma=sigma,
             curvature=float(c["curvature"]),
             species=c.get("species", []),
             center=_tup2(c["center"]) if "center" in c else None,
@@ -287,6 +294,9 @@ def load_config(path: str) -> SiteConfig:
         seed=int(sim_raw.get("seed", 42)),
         base_rate=float(sim_raw.get("base_rate", 0.75)),
         winter_suppression=float(sim_raw.get("winter_suppression", 0.35)),
+        heterogeneity_sigma=float(sim_raw.get("heterogeneity_sigma", 0.30)),
+        mortality_scaling=float(sim_raw.get("mortality_scaling", 0.90)),
+        winter_cap=int(sim_raw.get("winter_cap", 1)),
         agent=AgentParams(
             birds_per_day_base=int(agent_raw.get("birds_per_day_base", 600)),
             migrant_speed=float(agent_raw.get("migrant_speed", 2.4)),
@@ -312,8 +322,7 @@ def load_config(path: str) -> SiteConfig:
                 os.path.join(config_dir, turbine_csv_path)
             )
         if os.path.exists(turbine_csv_path):
-            from .geo import bounding_box, latlon_to_normalized
-            from ..tools.generate_config import load_turbine_csv
+            from .geo import load_turbine_csv
             import numpy as _np
             lats, lons = load_turbine_csv(turbine_csv_path)
             turbine_latlon = _np.column_stack([lats, lons])

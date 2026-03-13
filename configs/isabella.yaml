@@ -217,6 +217,9 @@ simulation:
   seed: 7
   base_rate: 0.75
   winter_suppression: 0.35
+  heterogeneity_sigma: 0.30   # turbine-level lognormal variance
+  mortality_scaling: 0.90     # global post-hoc calibration factor
+  winter_cap: 1               # max deaths per turbine in winter months
 
   # Agent-based model knobs
   agent:

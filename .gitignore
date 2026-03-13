@@ -11,6 +11,7 @@ build/
 venv/
 env/
 birds_env/
+.pytest_cache/
 
 # Generated outputs
 outputs/

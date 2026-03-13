@@ -35,21 +35,7 @@ from ..core.corridors import (
 from ..core.turbines import turbine_deflect
 
 
-# ── Font loading ──────────────────────────────────────────────────
-
-def _load_font(size: int) -> ImageFont.ImageFont:
-    for name in [
-        "/System/Library/Fonts/Supplemental/Arial.ttf",
-        "/System/Library/Fonts/Supplemental/Helvetica.ttf",
-        "/Library/Fonts/Arial.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "Arial.ttf",
-    ]:
-        try:
-            return ImageFont.truetype(name, size=size)
-        except Exception:
-            pass
-    return ImageFont.load_default()
+from ..core.fonts import load_font as _load_font
 
 
 # ── Drawing primitives ────────────────────────────────────────────
