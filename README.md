@@ -166,41 +166,23 @@ All models are site-agnostic and live in `src/core/`:
 | Poisson mortality | `simulate.py` | λ = base_rate × migration × density × (1 − avoid) × season × heterogeneity |
 | Agent-based movement | `agent_sim.py` | Migrants follow corridors; residents random-walk; step-by-step proximity checks |
 
-## Project Structure
+## Project Layout
 
 ```
 bird-simulation/
-├── configs/
-│   ├── isabella.yaml              # Worked example (Isabella Wind, Michigan)
-│   └── example_template.yaml      # Blank template for new sites
-├── src/
-│   ├── cli.py                     # Unified command-line interface
-│   ├── __main__.py                # python -m src entry point
-│   ├── core/                      # Site-agnostic mathematical models
-│   │   ├── config.py              # YAML loader + dataclasses
-│   │   ├── corridors.py           # Gaussian dispersion, Bezier, density fields
-│   │   ├── turbines.py            # Layout, K-NN avoidance, deflection
-│   │   ├── collision.py           # Multi-factor collision probability
-│   │   ├── calendar.py            # Monthly/seasonal calendar utilities
-│   │   ├── geo.py                 # Lat/lon → normalized [0,1] projection
-│   │   ├── flyways.py             # Flyway presets (6 major migration routes)
-│   │   └── tiles.py               # Auto-fetch satellite map tiles
-│   ├── tools/                     # Researcher workflow tools
-│   │   ├── generate_config.py     # Auto-generate config from turbine CSV
-│   │   ├── compare.py             # Scenario comparison (side-by-side)
-│   │   └── sweep.py               # Sensitivity parameter sweeps
-│   ├── phase1_paths/              # Phase 1: corridor visualization
-│   │   ├── annotate_months.py     # Monthly map renderer
-│   │   └── collage.py             # Grid collage assembly (full/half/ppt)
-│   └── phase2_mortality/          # Phase 2: mortality simulation
-│       ├── simulate.py            # Statistical (Poisson) model
-│       ├── agent_sim.py           # Agent-based model
-│       └── charts.py              # Bar charts, heatmaps, layout plots
-├── tests/                         # pytest test suite (125 tests)
-├── data/                          # Base satellite images go here
-├── outputs/                       # Generated files (gitignored)
+├── configs/               # Site configs + template
+├── src/                   # Pipeline + models
+│   ├── cli.py
+│   ├── core/
+│   ├── phase1_paths/
+│   ├── phase2_mortality/
+│   └── tools/
+├── tests/
+├── data/                  # Base images (optional)
+├── outputs/               # Generated artifacts (gitignored)
 ├── requirements.txt
-└── README.md
+├── README.md
+└── LICENSE
 ```
 
 ## Rendering Modes
