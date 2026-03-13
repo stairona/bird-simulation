@@ -22,6 +22,12 @@ Phase 1: MIGRATORY PATHS                Phase 2: MORTALITY ANALYSIS
                                          └────────────────────────────┘
 ```
 
+## Typical Outputs
+
+- Annotated corridor PNGs (monthly)
+- Mortality CSV summaries
+- Comparison charts and heatmaps
+
 ## Quick Start
 
 ```bash
