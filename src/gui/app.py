@@ -15,7 +15,7 @@ import streamlit as st
 import numpy as np
 from typing import Dict, Any
 
-from src.core.config import load_config, SiteConfig
+from src.core.config import load_config, SiteConfig, SimulationParams, CollisionParams, AgentParams
 from src.phase1_paths.annotate_months import render_corridors
 from src.phase2_mortality.simulate import simulate_dataset, monthly_totals
 from src.core.calendar import MONTH_NAMES
@@ -24,6 +24,119 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from PIL import Image
+import pickle
+import hashlib
+import time
+from dataclasses import asdict
+
+# ── Phase 3.1: Live Parameter Tuning Utilities ──────────────────────
+
+def _hash_config(cfg: SiteConfig, tuning_params: dict) -> str:
+    """Create a hash key for caching simulation results."""
+    # Combine base config + tuning overrides
+    key_data = {
+        'turbine_count': cfg.turbine_count,
+        'clusters': [(c.center, c.spread, c.fraction) for c in cfg.clusters],
+        'corridors': [(c.angle_deg, c.sigma, c.curvature) for c in cfg.corridors],
+        'density_blobs': [(b.center, b.spread, b.weight) for b in cfg.density_blobs],
+        'monthly_calendar': [(e.migration_index, e.intensity) for e in cfg.monthly_calendar],
+        'seasons': {k: (v.migration_intensity, v.resident_fraction, v.night_fraction, v.weather_risk)
+                    for k, v in cfg.seasons.items()},
+        'sim_seed': cfg.simulation.seed,
+        'tuning': tuning_params,  # overrides applied by sliders
+    }
+    key_str = str(sorted(key_data.items()))
+    return hashlib.md5(key_str.encode()).hexdigest()[:12]
+
+
+def apply_tuning_params(cfg: SiteConfig, params: dict) -> SiteConfig:
+    """Apply tuning parameter overrides to a config copy.
+
+    Returns a new SiteConfig with modified simulation parameters.
+    """
+    import copy
+    new_cfg = copy.deepcopy(cfg)
+
+    if 'avoidance' in params:
+        new_cfg.simulation.collision.avoidance = float(params['avoidance'])
+    if 'base_rate' in params:
+        new_cfg.simulation.base_rate = float(params['base_rate'])
+    if 'base_strike_prob' in params:
+        new_cfg.simulation.collision.base_strike_prob = float(params['base_strike_prob'])
+    if 'night_risk_mult' in params:
+        new_cfg.simulation.collision.night_risk_mult = float(params['night_risk_mult'])
+    if 'winter_suppression' in params:
+        new_cfg.simulation.winter_suppression = float(params['winter_suppression'])
+    if 'mortality_scaling' in params:
+        new_cfg.simulation.mortality_scaling = float(params['mortality_scaling'])
+
+    return new_cfg
+
+
+def run_simulation_cached(cfg: SiteConfig, tuning_params: dict, use_cache: bool = True):
+    """Run simulation with caching support."""
+    cache_key = _hash_config(cfg, tuning_params)
+
+    if use_cache and cache_key in st.session_state.sim_cache:
+        st.session_state.cache_hits += 1
+        st.session_state.simulation_results = st.session_state.sim_cache[cache_key]
+        st.toast("✅ Loaded from cache", icon="⚡")
+        return st.session_state.simulation_results
+
+    st.session_state.cache_misses += 1
+    # Apply tuning overrides
+    tuned_cfg = apply_tuning_params(cfg, tuning_params)
+
+    start_time = time.time()
+    rows = simulate_dataset(tuned_cfg)
+    totals = monthly_totals(rows)
+    annual = sum(totals.values())
+    elapsed = time.time() - start_time
+
+    results = {
+        "type": "statistical",
+        "rows": rows,
+        "totals": totals,
+        "annual": annual,
+        "elapsed": elapsed,
+        "cached": False,
+        "tuning_applied": tuning_params.copy() if tuning_params else {},
+    }
+
+    # Cache the results
+    st.session_state.sim_cache[cache_key] = results
+    st.session_state.simulation_results = results
+    st.session_state.last_sim_time = time.time()
+
+    return results
+
+
+def clear_simulation_cache():
+    """Clear the simulation cache."""
+    st.session_state.sim_cache.clear()
+    st.session_state.cache_hits = 0
+    st.session_state.cache_misses = 0
+    st.toast("🧹 Cache cleared", icon="🗑️")
+
+
+def auto_tune_callback():
+    """Callback for parameter sliders - marks that an update is needed."""
+    # Read current slider values from session state (updated by Streamlit)
+    # and store them in tuning_params for simulation and hashing
+    if 'avoidance_slider' in st.session_state:
+        st.session_state.tuning_params['avoidance'] = st.session_state.avoidance_slider
+    if 'base_rate_slider' in st.session_state:
+        st.session_state.tuning_params['base_rate'] = st.session_state.base_rate_slider
+    if 'base_strike_prob_slider' in st.session_state:
+        st.session_state.tuning_params['base_strike_prob'] = st.session_state.base_strike_prob_slider
+    if 'night_risk_mult_slider' in st.session_state:
+        st.session_state.tuning_params['night_risk_mult'] = st.session_state.night_risk_mult_slider
+    if 'winter_suppression_slider' in st.session_state:
+        st.session_state.tuning_params['winter_suppression'] = st.session_state.winter_suppression_slider
+    if 'mortality_scaling_slider' in st.session_state:
+        st.session_state.tuning_params['mortality_scaling'] = st.session_state.mortality_scaling_slider
+    st.session_state.needs_sim_update = True
+
 
 # ── Page Setup ──────────────────────────────────────────────────────
 st.set_page_config(
@@ -49,6 +162,19 @@ if "render_mode" not in st.session_state:
     st.session_state.render_mode = "eco"
 if "intensity_override" not in st.session_state:
     st.session_state.intensity_override = None
+# Phase 3.1: Live tuning state
+if "tuning_params" not in st.session_state:
+    st.session_state.tuning_params = {}
+if "sim_cache" not in st.session_state:
+    st.session_state.sim_cache = {}
+if "cache_hits" not in st.session_state:
+    st.session_state.cache_hits = 0
+if "cache_misses" not in st.session_state:
+    st.session_state.cache_misses = 0
+if "last_sim_time" not in st.session_state:
+    st.session_state.last_sim_time = None
+if "needs_sim_update" not in st.session_state:
+    st.session_state.needs_sim_update = False
 
 # ── Sidebar: Configuration ──────────────────────────────────────────
 with st.sidebar:
@@ -199,39 +325,177 @@ else:
         else:
             st.warning("No map views defined in config. Add a `maps:` section with base_image and corridor_endpoints.")
 
-    # ── Tab 2: Simulation ────────────────────────────────────────────
+    # ── Tab 2: Simulation (with Live Tuning) ───────────────────────────
     with tab2:
         st.header("Mortality Simulation")
 
-        col1, col2 = st.columns(2)
+        # Initialize tuning params from current config if not set
+        if not st.session_state.tuning_params:
+            st.session_state.tuning_params = {
+                'avoidance': cfg.simulation.collision.avoidance,
+                'base_rate': cfg.simulation.base_rate,
+                'base_strike_prob': cfg.simulation.collision.base_strike_prob,
+                'night_risk_mult': cfg.simulation.collision.night_risk_mult,
+                'winter_suppression': cfg.simulation.winter_suppression,
+                'mortality_scaling': cfg.simulation.mortality_scaling,
+            }
+
+        col1, col2 = st.columns([3, 1])
 
         with col1:
-            st.subheader("Statistical (Poisson)")
-            if st.button("Run Statistical Simulation", type="primary"):
-                with st.spinner("Running simulation..."):
-                    rows = simulate_dataset(cfg)
-                    totals = monthly_totals(rows)
-                    annual = sum(totals.values())
-                st.session_state.simulation_results = {
-                    "type": "statistical",
-                    "rows": rows,
-                    "totals": totals,
-                    "annual": annual
-                }
-                st.success(f"Simulation complete! Annual mortality: {annual:,}")
+            st.subheader("Parameter Tuning")
 
-            if st.session_state.simulation_results and st.session_state.simulation_results["type"] == "statistical":
+            st.markdown("**Real-time Preview:** Adjust sliders to see how parameters affect mortality. Changes are automatically simulated with debouncing.")
+
+            # Tuning sliders
+            t_col1, t_col2 = st.columns(2)
+
+            with t_col1:
+                avoidance = st.slider(
+                    "Collision Avoidance",
+                    min_value=0.0,
+                    max_value=0.99,
+                    value=float(st.session_state.tuning_params.get('avoidance', cfg.simulation.collision.avoidance)),
+                    step=0.01,
+                    format="%.2f",
+                    key="avoidance_slider",
+                    on_change=auto_tune_callback,
+                    help="Fraction of birds that successfully avoid turbines (0=no avoidance, 0.99=near-perfect)"
+                )
+
+                base_rate = st.slider(
+                    "Base Mortality Rate",
+                    min_value=0.1,
+                    max_value=5.0,
+                    value=float(st.session_state.tuning_params.get('base_rate', cfg.simulation.base_rate)),
+                    step=0.05,
+                    format="%.2f",
+                    key="base_rate_slider",
+                    on_change=auto_tune_callback,
+                    help="Global scaling factor for collision probability"
+                )
+
+                winter_suppression = st.slider(
+                    "Winter Suppression",
+                    min_value=0.0,
+                    max_value=1.0,
+                    value=float(st.session_state.tuning_params.get('winter_suppression', cfg.simulation.winter_suppression)),
+                    step=0.05,
+                    format="%.2f",
+                    key="winter_suppression_slider",
+                    on_change=auto_tune_callback,
+                    help="Reduction factor applied during winter months"
+                )
+
+            with t_col2:
+                base_strike_prob = st.slider(
+                    "Base Strike Probability",
+                    min_value=0.0001,
+                    max_value=0.01,
+                    value=float(st.session_state.tuning_params.get('base_strike_prob', cfg.simulation.collision.base_strike_prob)),
+                    step=0.0001,
+                    format="%.5f",
+                    key="base_strike_prob_slider",
+                    on_change=auto_tune_callback,
+                    help="Baseline per-step strike probability when bird is in rotor zone"
+                )
+
+                night_risk_mult = st.slider(
+                    "Night Risk Multiplier",
+                    min_value=0.5,
+                    max_value=5.0,
+                    value=float(st.session_state.tuning_params.get('night_risk_mult', cfg.simulation.collision.night_risk_mult)),
+                    step=0.1,
+                    format="%.1f",
+                    key="night_risk_mult_slider",
+                    on_change=auto_tune_callback,
+                    help="Multiplier applied during nocturnal flight"
+                )
+
+                mortality_scaling = st.slider(
+                    "Mortality Scaling",
+                    min_value=0.1,
+                    max_value=2.0,
+                    value=float(st.session_state.tuning_params.get('mortality_scaling', cfg.simulation.mortality_scaling)),
+                    step=0.05,
+                    format="%.2f",
+                    key="mortality_scaling_slider",
+                    on_change=auto_tune_callback,
+                    help="Global calibration factor for final mortality estimates"
+                )
+
+            # Note: tuning_params is updated by auto_tune_callback when sliders change
+            # We only need to ensure it's initialized on first load
+            if not st.session_state.tuning_params:
+                st.session_state.tuning_params = {
+                    'avoidance': cfg.simulation.collision.avoidance,
+                    'base_rate': cfg.simulation.base_rate,
+                    'base_strike_prob': cfg.simulation.collision.base_strike_prob,
+                    'night_risk_mult': cfg.simulation.collision.night_risk_mult,
+                    'winter_suppression': cfg.simulation.winter_suppression,
+                    'mortality_scaling': cfg.simulation.mortality_scaling,
+                }
+
+            # Cache control
+            st.markdown("---")
+            c_col1, c_col2, c_col3 = st.columns(3)
+            with c_col1:
+                if st.button("🔄 Reset to Config Defaults", help="Reset sliders to values from loaded config"):
+                    # Reset tuning params to config defaults
+                    st.session_state.tuning_params = {
+                        'avoidance': cfg.simulation.collision.avoidance,
+                        'base_rate': cfg.simulation.base_rate,
+                        'base_strike_prob': cfg.simulation.collision.base_strike_prob,
+                        'night_risk_mult': cfg.simulation.collision.night_risk_mult,
+                        'winter_suppression': cfg.simulation.winter_suppression,
+                        'mortality_scaling': cfg.simulation.mortality_scaling,
+                    }
+                    # Clear slider state keys so they re-initialize from tuning_params
+                    for key in ['avoidance_slider', 'base_rate_slider', 'base_strike_prob_slider',
+                               'night_risk_mult_slider', 'winter_suppression_slider', 'mortality_scaling_slider']:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    st.session_state.needs_sim_update = True
+                    st.rerun()
+            with c_col2:
+                if st.button("🗑️ Clear Cache", help="Clear cached simulation results"):
+                    clear_simulation_cache()
+                    st.rerun()
+            with c_col3:
+                st.metric("Cache Hits", f"{st.session_state.cache_hits}")
+                st.metric("Cache Misses", f"{st.session_state.cache_misses}")
+
+            # Auto-run simulation when sliders change (debounced by Streamlit rerun)
+            if st.session_state.needs_sim_update or st.session_state.simulation_results is None:
+                with st.spinner("Simulating with tuned parameters..."):
+                    results = run_simulation_cached(cfg, st.session_state.tuning_params, use_cache=True)
+                st.session_state.needs_sim_update = False
+
+            # Show current results
+            if st.session_state.simulation_results:
                 res = st.session_state.simulation_results
-                st.metric("Annual Mortality", f"{res['annual']:,}")
+                cache_tag = "⚡ Cached" if res.get("cached", False) else "🆕 Fresh"
+                st.success(f"**Annual Mortality:** {res['annual']:,}  {cache_tag}  (took {res.get('elapsed', 0):.2f}s)")
+
+                # Show which params were applied
+                if res.get("tuning_applied"):
+                    st.caption("Tuned parameters: " + ", ".join(
+                        f"{k}={v:.3f}" for k, v in res["tuning_applied"].items()
+                    ))
+
+                st.subheader("Monthly Breakdown")
+                df_data = [[m, res['totals'][m]] for m in MONTH_NAMES]
                 st.dataframe(
-                    [[m, res['totals'][m]] for m in MONTH_NAMES],
-                    columns=["Month", "Deaths"]
+                    df_data,
+                    columns=["Month", "Deaths"],
+                    use_container_width=True,
+                    hide_index=True
                 )
 
         with col2:
             st.subheader("Agent-Based")
-            st.info("Agent-based simulation runs ~2-5 minutes. This feature will be available in a future update.")
-            if st.button("Run Agent Simulation (Disabled)", disabled=True):
+            st.info("Agent-based simulation runs ~2-5 minutes. Coming in a future update.")
+            if st.button("Run Agent Simulation", disabled=True):
                 pass
 
     # ── Tab 3: Results ───────────────────────────────────────────────

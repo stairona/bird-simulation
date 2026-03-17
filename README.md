@@ -153,6 +153,25 @@ Then open http://localhost:8501 in your browser.
 
 The GUI provides a user-friendly alternative to the CLI for researchers who prefer visual interaction over command-line workflows.
 
+### Live Parameter Tuning (Phase 3.1)
+
+The GUI includes **real-time parameter tuning** with automatic caching:
+
+- Adjust 6 key simulation parameters via sliders:
+  - Collision Avoidance (0–99%)
+  - Base Mortality Rate (0.1–5.0)
+  - Base Strike Probability (0.0001–0.01)
+  - Night Risk Multiplier (0.5–5×)
+  - Winter Suppression (0–1)
+  - Mortality Scaling (0.1–2.0)
+- Changes trigger automatic simulation (debounced)
+- Results are cached — returning to a previous parameter set is instant
+- Cache hits/misses displayed
+- Reset button to restore config defaults
+- Clear cache button to free memory
+
+This allows rapid "what-if" exploration without leaving the browser.
+
 ## CLI Reference
 
 | Command | Description |
