@@ -132,6 +132,27 @@ python -m src.cli sweep --config configs/isabella.yaml --param list
 
 Sweepable parameters: `avoidance`, `base_rate`, `turbine_count`, `base_strike_prob`
 
+## Interactive GUI
+
+For interactive exploration, launch the Streamlit-based web interface:
+
+```bash
+python -m src.cli gui --port 8501
+```
+
+Then open http://localhost:8501 in your browser.
+
+**Features:**
+- Upload and edit YAML configs through forms
+- Live corridor map preview with adjustable month and intensity
+- Render mode selector (eco/cinematic/pub)
+- Run statistical simulations and view results instantly
+- Interactive bar charts with monthly mortality breakdown
+- Per-turbine mortality table
+- Export configs and images
+
+The GUI provides a user-friendly alternative to the CLI for researchers who prefer visual interaction over command-line workflows.
+
 ## CLI Reference
 
 | Command | Description |
@@ -145,11 +166,14 @@ Sweepable parameters: `avoidance`, `base_rate`, `turbine_count`, `base_strike_pr
 | `generate` | Auto-generate config from turbine CSV + flyway region preset |
 | `compare` | Compare mortality across multiple config scenarios |
 | `sweep` | Sensitivity sweep of a simulation parameter |
+| `gui` | Launch the interactive web GUI (Streamlit) |
 
 Common flags:
-- `--config PATH` — site YAML config (required for all except `init` and `generate`)
+- `--config PATH` — site YAML config (required for all except `init`, `generate`, and `gui`)
 - `--mode eco|cinematic|pub` — rendering style for corridor maps
 - `--out DIR` — override output directory
+- `--port PORT` — port for GUI server (default: 8501)
+- `--browser` — open browser automatically when launching GUI
 
 ## Mathematical Models
 

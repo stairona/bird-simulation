@@ -172,6 +172,45 @@ def cmd_sweep(args):
     )
 
 
+def cmd_gui(args):
+    """Launch the Streamlit GUI."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    port = args.port
+    script_path = Path(__file__).parent / "gui" / "app.py"
+
+    if not script_path.exists():
+        print(f"Error: GUI app not found at {script_path}")
+        print("Make sure you have installed the required dependencies: pip install streamlit plotly pandas")
+        sys.exit(1)
+
+    # Quick import test to catch missing dependencies early
+    try:
+        import streamlit  # noqa: F401
+        import plotly  # noqa: F401
+        import pandas  # noqa: F401
+    except ImportError as e:
+        print(f"Error: Missing dependency — {e}")
+        print("Install required packages: pip install streamlit plotly pandas")
+        sys.exit(1)
+
+    cmd = [sys.executable, "-m", "streamlit", "run", str(script_path), "--server.port", str(port)]
+
+    if args.browser:
+        cmd.append("--server.headless=false")
+    else:
+        cmd.append("--server.headless=true")
+
+    print(f"Launching Bird Simulation GUI on http://localhost:{port}")
+    print("Press Ctrl+C to stop the server.")
+    try:
+        subprocess.run(cmd)
+    except KeyboardInterrupt:
+        print("\nGUI server stopped.")
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="bird-sim",
@@ -257,6 +296,12 @@ def main():
     p_swp.add_argument("--steps", type=int, default=10, help="Number of sweep steps")
     p_swp.add_argument("--out", help="Output directory")
     p_swp.set_defaults(func=cmd_sweep)
+
+    # gui
+    p_gui = sub.add_parser("gui", help="Launch the interactive web GUI (Streamlit)")
+    p_gui.add_argument("--port", type=int, default=8501, help="Port for Streamlit server")
+    p_gui.add_argument("--browser", action="store_true", help="Open browser automatically")
+    p_gui.set_defaults(func=cmd_gui)
 
     args = parser.parse_args()
     if not args.command:
