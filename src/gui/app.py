@@ -18,7 +18,6 @@ from typing import Dict, Any
 from src.core.config import load_config, SiteConfig
 from src.phase1_paths.annotate_months import render_corridors
 from src.phase2_mortality.simulate import simulate_dataset, monthly_totals
-from src.phase2_mortality.charts import plot_total_monthly_bar, plot_avg_per_turbine_monthly_bar
 from src.core.calendar import MONTH_NAMES
 
 import matplotlib
