@@ -1,5 +1,7 @@
 # Bird Collision Simulation Toolkit
 
+![Python](https://img.shields.io/badge/python-3.8%2B-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
+
 A config-driven Python toolkit for wind energy researchers and ecologists to simulate bird collision risk, visualize migration corridors, and produce mortality analysis — **for any wind farm site**.
 
 ## How It Works
