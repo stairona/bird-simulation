@@ -32,6 +32,12 @@ data/*.png
 # macOS
 .DS_Store
 
+# Claude/Ruflo tooling artifacts
+.claude-flow/
+.claude/
+.claudeignore
+design-system/
+
 # Personal/workspace files — never commit these
 plan.md
 CLAUDE.md
